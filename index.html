@@ -662,6 +662,9 @@ body.exploring:not(.av-open) .home-btn { opacity: 1; pointer-events: auto; trans
   .hold span { width: 68px; height: 68px; font-size: 11px; }
   .caption { bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
 }
+#btnMo[aria-pressed="true"] { background: linear-gradient(180deg, #f6c75c, #e09a2a); color: #3a1608; border-color: #ffe2a0; }
+body.mo-focus .tags { opacity: 0; }
+body.mo-focus .joy { opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -751,7 +754,7 @@ body.exploring:not(.av-open) .home-btn { opacity: 1; pointer-events: auto; trans
       </button>
       <button class="btn" id="btnMo" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="11" cy="15" rx="7.5" ry="5"/><path d="M5 14.5h12M15 4l5 5M19 3l2 2"/></svg>
-        Gõ mõ
+        <span id="moLabel">Gõ mõ</span>
       </button>
       <button class="btn" id="btnNew" type="button">Viết sớ mới</button>
     </div>
@@ -847,7 +850,16 @@ const CONFIG = {
   // Huy hiệu ngực áo (tuỳ chọn): đường dẫn ảnh PNG nền trong suốt, ví dụ 'logo.png' đặt cạnh index.html.
   // Chỉ dùng logo khi bạn có quyền sử dụng. Để trống = dùng huy hiệu Cậu Cóc mặc định.
   BADGE_IMAGE: '',
+  // Chặn F12 / chuột phải / Ctrl+U (chỉ gây khó, không chặn được hoàn toàn). Thêm #debug vào URL để tắt.
+  BLOCK_DEVTOOLS: true,
 };
+if (CONFIG.BLOCK_DEVTOOLS && location.hash !== '#debug' && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+  addEventListener('keydown', (e) => {
+    const k = (e.key || '').toLowerCase();
+    if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && 'ijc'.includes(k) && k) || ((e.ctrlKey || e.metaKey) && (k === 'u' || k === 's'))) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  addEventListener('contextmenu', (e) => { if (!/INPUT|TEXTAREA/.test(e.target.tagName)) e.preventDefault(); }, true);
+}
 const HAIR_NAMES = [
   'Ivy League', 'Side Part', 'Xoăn uốn', 'Two Block', 'Dấu phẩy', 'Rẽ giữa', 'Mullet', 'Mohican', // nam
   'Dài thẳng', 'Tóc Bob', 'Wolf cut', 'Đuôi ngựa', 'Hai búi', 'Tết hai bên', 'Xoăn sóng', 'Hime', // nữ
@@ -2835,8 +2847,9 @@ function createShrine(THREE, canvas, hooks) {
     keeper: { c: V3(1.9, 0.75, 1.3), w: 2.3, h: 1.7, elev: 0.2, yaw: 0.2 },
     follow: { c: V3(), w: 3.6, h: 2.7, elev: 0.38, yaw: 0 },
     shake: { c: V3(-1.12, 1.45, 0.55), w: 1.05, h: 1.0, elev: 0.27, yaw: -0.22 },
+    mo: { c: V3(1.15, 1.42, 0.5), w: 1.95, h: 1.35, elev: 0.45, yaw: 0.3 },
   };
-  const FOCI_PORTRAIT = { overview: { w: 4.55 }, result: { w: 4.55 }, avatar: { w: 1.1, h: 1.4 }, ritual: { w: 1.55, h: 2.3 }, shake: { c: V3(-1.2, 1.43, 0.56), w: 1.0, h: 1.3, yaw: -0.14 } };
+  const FOCI_PORTRAIT = { overview: { w: 4.55 }, result: { w: 4.55 }, avatar: { w: 1.1, h: 1.4 }, ritual: { w: 1.55, h: 2.3 }, shake: { c: V3(-1.2, 1.43, 0.56), w: 1.0, h: 1.3, yaw: -0.14 }, mo: { w: 1.5, h: 1.7, yaw: 0.2 } };
   let focus = 'overview', bow = 0;
   const cam = { pos: V3(0, 5, 17), look: V3(0, 2.2, 0), offX: 0, offY: 0 };
   const want = { pos: V3(), look: V3(), offX: 0, offY: 0 };
@@ -2853,10 +2866,10 @@ function createShrine(THREE, canvas, hooks) {
     out.offX = occ.right / 2; out.offY = (occ.bottom - occ.top) / 2;
     return out;
   }
-  let exploring = false;
+  let exploring = false, freeRoam = false; // chỉ bám theo nhân vật khi người chơi tự đi
   const computeWant = () => {
     const me = chars.get('me');
-    const ex = !!me && !me.praying && me.pos.distanceTo(me.home) > 1.1 && (focus === 'overview' || focus === 'result');
+    const ex = freeRoam && !!me && !me.praying && me.pos.distanceTo(me.home) > 1.1 && (focus === 'overview' || focus === 'result');
     if (ex !== exploring) { exploring = ex; hooks.onExplore(ex); }
     if (ex) FOCI.follow.c.set(me.pos.x, 0.8, me.pos.z);
     return frameFor(ex ? 'follow' : focus, hooks.occlusion(), want);
@@ -2943,6 +2956,7 @@ function createShrine(THREE, canvas, hooks) {
   canvas.addEventListener('click', (e) => {
     const p = pick(e.clientX, e.clientY);
     if (p) { hooks.onPick(p, e.clientX, e.clientY); return; }
+    if (hooks.onTapEmpty) hooks.onTapEmpty();
     void floorPlane; void floorHit;
   });
 
@@ -3015,7 +3029,7 @@ function createShrine(THREE, canvas, hooks) {
         me.target = null; me.path = null; me.onArrive = null;
         me.pos.x += (dx / l) * sp * dt; me.pos.z += (dz / l) * sp * dt;
         for (const o of OBSTACLES) { const ox = me.pos.x - o[0], oz = me.pos.z - o[1], d = Math.hypot(ox, oz); if (d < o[2]) { me.pos.x = o[0] + (ox / (d || 1)) * o[2]; me.pos.z = o[1] + (oz / (d || 1)) * o[2]; } }
-        pushOut(me.pos); me.moveYaw = Math.atan2(dx, dz); me.kb = true;
+        pushOut(me.pos); me.moveYaw = Math.atan2(dx, dz); me.kb = true; freeRoam = true;
       }
     }
     if (me) {
@@ -3106,7 +3120,7 @@ function createShrine(THREE, canvas, hooks) {
     },
     charName(pickName) { const ch = chars.get(pickName.slice(5)); return ch ? ch.name : ''; },
     setNpcCount(n) { npcWant = n; syncNpcs(); },
-    setFocus(f) { focus = f; },
+    setFocus(f) { focus = f; freeRoam = false; },
     setPointerIdle() { pointer.x = pointer.y = 0; },
     knock() { malletT = 0; return screenOf(moBody, 0.22); },
     hop() { cocT = 0; return screenOf(coc, 0.25); },
@@ -3224,6 +3238,7 @@ const state = {
 let shrine = null;
 
 function setState(s) {
+  if (s !== 'result' && moFocus) setMoFocus(false);
   state.name = s;
   document.body.dataset.state = s;
   ui.sheet.inert = s !== 'form';
@@ -3267,7 +3282,7 @@ function caption(text, wish = '') { ui.capText.textContent = text; ui.capWish.te
 let occ = { right: 0, bottom: 0, top: 60 };
 function occOf(el) { // bảng nằm bên phải (máy tính, điện thoại xoay ngang) hay ở đáy (điện thoại dọc)
   const r = el.getBoundingClientRect();
-  if (r.width < innerWidth * 0.7 && r.left > innerWidth * 0.25) return { right: clamp(innerWidth - r.left + 12, 0, innerWidth * 0.6), bottom: 0 };
+  if (r.width < innerWidth * 0.7 && r.left > innerWidth * 0.4 && r.right > innerWidth - 80) return { right: clamp(innerWidth - r.left + 12, 0, innerWidth * 0.6), bottom: 0 };
   return { right: 0, bottom: clamp(innerHeight - r.top, 0, innerHeight * 0.75) };
 }
 function measureOcclusion() {
@@ -3497,8 +3512,17 @@ function bindJoystick() {
   base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
 }
 
-/* Gõ mõ */
-let comboT = 0, combo = 0;
+/* Gõ mõ: bấm nút lần 1 = zoom cận cảnh mõ, chạm/Space để gõ; bấm lần 2 = thoát */
+let comboT = 0, combo = 0, moFocus = false;
+function setMoFocus(v) {
+  if (moFocus === v) return;
+  moFocus = v;
+  document.body.classList.toggle('mo-focus', v);
+  const lb = $('#moLabel'); if (lb) lb.textContent = v ? 'Xong' : 'Gõ mõ';
+  $('#btnMo').setAttribute('aria-pressed', String(v));
+  if (shrine) shrine.setFocus(v ? 'mo' : (state.name === 'result' ? 'result' : focusForState()));
+  if (v) toast(isCoarse ? 'Chạm vào màn hình để gõ mõ. Bấm Xong để thoát.' : 'Bấm vào màn hình hoặc phím Space để gõ mõ. Bấm Xong để thoát.', 3000);
+}
 function knockMo() {
   sound.knock();
   state.merit++; store.set('merit', state.merit); updateHUD();
@@ -3650,7 +3674,8 @@ function bindUI() {
   ui.soundBtn.addEventListener('click', () => { sound.ensure(); sound.setOn(!sound.on); ui.soundBtn.setAttribute('aria-pressed', String(sound.on)); if (sound.on) sound.chime(); });
   ui.skip.addEventListener('click', () => { clock.scale = 4; ui.skip.blur(); });
   $('#btnXam').addEventListener('click', enterShake);
-  $('#btnMo').addEventListener('click', knockMo);
+  $('#btnMo').addEventListener('click', () => { if (moFocus) setMoFocus(false); else { setMoFocus(true); knockMo(); } });
+  addEventListener('keydown', (e) => { if (moFocus && e.code === 'Space' && !/INPUT|TEXTAREA|BUTTON/.test(document.activeElement?.tagName || '')) { e.preventDefault(); knockMo(); } });
   $('#btnNew').addEventListener('click', () => { setState('form'); if (shrine) shrine.setFocus('overview'); setTimeout(() => ui.wish.focus({ preventScroll: true }), 450); });
   $('#shakeCancel').addEventListener('click', leaveShake);
   const h = ui.hold;
@@ -3700,9 +3725,10 @@ async function start(hot) {
         tagLayer: $('#tags'),
         onHover: (name, x, y) => (name && state.name !== 'ritual' ? showTooltip(name, x, y) : hideTooltip()),
         onPick,
+        onTapEmpty: () => { if (moFocus && state.name === 'result') knockMo(); },
         onShake: (p) => ui.hold.style.setProperty('--p', p.toFixed(3)),
         onStickDrawn: () => { if (state.name === 'shake') showFortune(); },
-        canMove: () => !avatarOpen && (state.name === 'form' || state.name === 'result'),
+        canMove: () => !avatarOpen && !moFocus && (state.name === 'form' || state.name === 'result'),
         onExplore: (v) => document.body.classList.toggle('exploring', v),
         onMeMove: (x, z) => net.setMe({ p: [x, z] }),
         onGotIncense,
