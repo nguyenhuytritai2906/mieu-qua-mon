@@ -720,6 +720,11 @@ body.chat-open .chat{opacity:1;transform:none;pointer-events:auto}
   .chat{top:auto;bottom:24px;height:min(420px,calc(100dvh - 110px))}
 }
 body.av-open .chat,body[data-state=fortune] .chat,body[data-state=ritual] .chat{opacity:0!important;pointer-events:none!important}
+
+.msg{position:relative}
+.msg .mute{position:absolute;top:4px;right:6px;border:0;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;background:rgba(0,0,0,.35);color:#fff3da;opacity:0;transition:opacity .15s}
+.msg:hover .mute,.msg:focus-within .mute{opacity:1}
+@media (pointer: coarse){.msg .mute{opacity:.8}}
 </style>
 </head>
 <body>
@@ -3387,11 +3392,33 @@ function cleanChat(t) {
   let s = String(t ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
   return s.replace(BAD_RE, (m, a, w) => a + '*'.repeat(w.length));
 }
+/* Chống quảng cáo / spam trong chat: lọc ở MÁY NHẬN nên tin rác không hiện với ai, kể cả khi người gửi sửa code */
+const NUM_WORDS = { khong: 0, mot: 1, hai: 2, ba: 3, bon: 4, tu: 4, nam: 5, lam: 5, sau: 6, bay: 7, tam: 8, chin: 9 };
+const SPAM_KEYS = ['doan thue', 'nhan lam', 'lam thue', 'lam ho', 'lam bai ho', 'dich vu', 'zalo', 'zl', 'tele', 'telegram', 'inbox', 'ib', 'lien he', 'support', 'sp ', 'tool', 'hack', 'cheat', 'bao pass', 'bao qua', 'gia re', 'giam gia', 'uu dai', 'kiem tien', 'mua ban', 'ban acc', 'sdt', 'so dien thoai', 'hotline', 'fanpage', 'facebook', 'fb', 'tiktok', 'discord', 'ref', 'link', 'web ', 'https', 'http', 'www'];
+function normTxt(t) {
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
+    .replace(/[@4]/g, 'a').replace(/3/g, 'e').replace(/\$/g, 's').replace(/[!|]/g, 'i');
+}
+function isSpam(t) {
+  if (!t) return false;
+  const raw = String(t).toLowerCase();
+  // 1) số điện thoại: đếm chữ số (kể cả viết rời, viết bằng chữ)
+  const digits = (raw.match(/\d/g) || []).length;
+  const words = normTxt(raw).split(/[^a-z]+/).filter((w) => w in NUM_WORDS).length;
+  if (digits >= 7 || digits + words >= 8) return true;
+  // 2) đường link, tên miền
+  if (/(https?:|www\.|t\.me|zalo\.me|bit\.ly|tinyurl|fb\.(com|me)|[a-z0-9-]+\s*(\.|chấm|cham)\s*(com|vn|net|org|me|io|xyz|link|site|shop|store|app|top|cc|tk)\b)/i.test(raw)) return true;
+  if (/(^|[^\p{L}])(đ[ồô]|do)\s*[áa]n(?![\p{L}])/iu.test(raw)) return true; // "đồ án" (không chặn "đồ ăn")
+  // 3) từ khoá quảng cáo dịch vụ (bỏ dấu, bỏ ký tự lách luật)
+  const n = ' ' + normTxt(raw).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const compact = n.replace(/ /g, '');
+  return SPAM_KEYS.some((k) => { const kk = k.trim(); return kk.length <= 3 ? n.includes(' ' + kk + ' ') : n.includes(' ' + kk) || compact.includes(kk.replace(/ /g, '')); });
+}
 const net = (() => {
   let mode = 'off', sendFn = null, total = 0, me = {}, evI = 0, knockN = 0, knockTimer = 0;
   const known = new Map();
   const CLEAN = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g;
-  const cleanName = (s) => String(s ?? '').replace(CLEAN, '').trim().slice(0, 16) || 'Bạn học';
+  const cleanName = (s) => { const n = String(s ?? '').replace(CLEAN, '').trim().slice(0, 16); return !n || isSpam(n) ? 'Bạn học' : n; };
   const idx = (v, n) => (Number.isInteger(v) && v >= 0 && v < n ? v : 0);
   function sanitize(p) {
     if (!p || typeof p !== 'object' || p.v !== 1) return null;
@@ -3419,10 +3446,14 @@ const net = (() => {
       const k = known.get(id);
       if (!k) {
         const shown = shrine ? shrine.peerUpsert(id, s.name, s.look, s.g, s.pos) : false;
-        known.set(id, { ev: s.ev ? s.ev.i : -1, shown });
+        known.set(id, { ev: s.ev ? s.ev.i : -1, shown, since: Date.now(), last: 0, recent: [], strikes: 0 });
       } else {
         if (shrine) k.shown = shrine.peerUpsert(id, s.name, s.look, s.g, s.pos);
-        if (s.ev && s.ev.i !== k.ev) { k.ev = s.ev.i; if (shrine) shrine.peerEvent(id, s.ev.k, s.ev.d); if (s.ev.k === 'chat') chat.add(s.name, s.ev.d.m, false); }
+        if (s.ev && s.ev.i !== k.ev) {
+          k.ev = s.ev.i;
+          if (s.ev.k === 'chat') { if (chat.allow(id, s.ev.d.m, k)) { if (shrine) shrine.peerEvent(id, 'chat', s.ev.d); chat.add(s.name, s.ev.d.m, false, id); } }
+          else if (shrine) shrine.peerEvent(id, s.ev.k, s.ev.d);
+        }
       }
     }
     for (const id of [...known.keys()]) if (!seen.has(id)) { known.delete(id); if (shrine) shrine.peerRemove(id); }
@@ -3780,11 +3811,29 @@ const chat = (() => {
   let open = false, unread = 0, lastSent = 0;
   const panel = () => $('#chatPanel'), log = () => $('#chatLog');
   function badge() { const b = $('#chatBadge'); b.textContent = unread > 9 ? '9+' : String(unread); b.hidden = !unread; }
-  function add(name, text, mine) {
+  const muted = new Set();
+  function allow(id, text, k) { // chặn ở máy nhận: quảng cáo, spam, người bị ẩn
+    const now = Date.now();
+    if (muted.has(id) || k.strikes >= 2) return false;
+    if (isSpam(text)) { k.strikes++; if (k.strikes >= 2) muted.add(id); return false; }
+    if (now - k.since < 8000) return false; // vừa vào đã nhắn ngay: thường là bot rải tin
+    if (now - k.last < 2500) return false;
+    k.recent = k.recent.filter((r) => now - r.t < 60000);
+    if (k.recent.some((r) => r.m === text) || k.recent.length >= 6) return false;
+    k.recent.push({ t: now, m: text }); k.last = now;
+    return true;
+  }
+  function add(name, text, mine, id) {
     if (!text) return;
     const row = document.createElement('div'); row.className = 'msg' + (mine ? ' mine' : '');
     const n = document.createElement('b'); n.textContent = name; const t = document.createElement('span'); t.textContent = text;
     row.append(n, t);
+    if (id && !mine) {
+      row.dataset.id = id;
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'mute'; x.textContent = 'Ẩn'; x.title = 'Ẩn tin nhắn của người này';
+      x.addEventListener('click', () => { muted.add(id); for (const r of log().querySelectorAll(`.msg[data-id="${CSS.escape(id)}"]`)) r.remove(); toast(`Đã ẩn tin nhắn của ${name}.`); });
+      row.appendChild(x);
+    }
     const L = log(), stick = L.scrollHeight - L.scrollTop - L.clientHeight < 40;
     L.appendChild(row); while (L.children.length > 80) L.firstChild.remove();
     const empty = $('#chatEmpty'); if (empty) empty.remove();
@@ -3799,6 +3848,7 @@ const chat = (() => {
   }
   function send(raw) {
     const text = cleanChat(raw); if (!text) return false;
+    if (isSpam(text)) { toast('Không gửi được: chat không cho phép số điện thoại, link hay quảng cáo dịch vụ.', 3600); return false; }
     const now = Date.now();
     if (now - lastSent < 1500) { toast('Từ từ thôi, đợi một chút rồi nhắn tiếp nhé.'); return false; }
     lastSent = now;
@@ -3820,7 +3870,7 @@ const chat = (() => {
   }
   // Máy tính: mở sẵn thanh chat bên trái (trừ khi người chơi đã tự đóng)
   function autoOpen() { if (!isCoarse && innerWidth > 720 && store.get('chatOpen', true) && !open) setOpen(true, false, false); }
-  return { add, bind, setOpen, autoOpen, get open() { return open; } };
+  return { add, allow, bind, setOpen, autoOpen, get open() { return open; } };
 })();
 
 function bindUI() {
