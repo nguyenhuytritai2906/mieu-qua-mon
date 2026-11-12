@@ -852,6 +852,11 @@ const CONFIG = {
   BADGE_IMAGE: '',
   // Chặn F12 / chuột phải / Ctrl+U (chỉ gây khó, không chặn được hoàn toàn). Thêm #debug vào URL để tắt.
   BLOCK_DEVTOOLS: true,
+  // Chơi nhiều người không cần server riêng: dùng broker MQTT công khai qua WebSocket (thử lần lượt).
+  // Chỉ gửi tên, kiểu nhân vật, vị trí và hành động. Để [] để tắt.
+  MQTT_BROKERS: ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081'],
+  MQTT_ROOM: 'mieu-qua-mon/v1/main',
+  MQTT_LIB: 'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.esm.js',
 };
 if (CONFIG.BLOCK_DEVTOOLS && location.hash !== '#debug' && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
   addEventListener('keydown', (e) => {
@@ -3387,6 +3392,51 @@ const net = (() => {
       };
     });
   }
+  async function tryMqtt() {
+    if (!CONFIG.MQTT_BROKERS || !CONFIG.MQTT_BROKERS.length) return false;
+    let lib;
+    try { const m = await import(CONFIG.MQTT_LIB); lib = m.default && m.default.connect ? m.default : m.default && m.default.default ? m.default.default : m; } catch { return false; }
+    if (!lib || typeof lib.connect !== 'function') return false;
+    const myId = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    const base = CONFIG.MQTT_ROOM, mine = `${base}/p/${myId}`;
+    for (const url of CONFIG.MQTT_BROKERS) {
+      const client = await new Promise((resolve) => {
+        let done = false;
+        const c = lib.connect(url, { clientId: 'mqm_' + myId, clean: true, connectTimeout: 6000, reconnectPeriod: 0, keepalive: 30,
+          will: { topic: mine, payload: '', qos: 0, retain: false } });
+        const fin = (ok) => { if (done) return; done = true; if (!ok) { try { c.end(true); } catch { /* */ } } resolve(ok ? c : null); };
+        c.once('connect', () => fin(true));
+        c.once('error', () => fin(false));
+        setTimeout(() => fin(false), 7000);
+      });
+      if (!client) continue;
+      mode = 'mqtt';
+      const seen = new Map();
+      const push = () => apply([...seen].slice(0, 40).map(([id, v]) => ({ id, p: v.p })));
+      let lastSend = 0, pending = 0;
+      const pub = () => { lastSend = Date.now(); pending = 0; if (client.connected) client.publish(mine, JSON.stringify(me), { qos: 0 }); };
+      sendFn = () => { const wait = 250 - (Date.now() - lastSend); if (wait <= 0) pub(); else if (!pending) pending = setTimeout(pub, wait); };
+      client.on('message', (topic, buf) => {
+        const id = topic.slice(base.length + 3);
+        if (!id || id === myId || id.length > 24 || buf.length > 1500) return;
+        if (!buf.length) { seen.delete(id); push(); return; }
+        let p; try { p = JSON.parse(buf.toString()); } catch { return; }
+        const fresh = !seen.has(id);
+        seen.set(id, { p, at: Date.now() });
+        if (fresh) pub(); // chào người mới để họ thấy mình ngay
+        push();
+      });
+      client.subscribe(`${base}/p/+`, { qos: 0 });
+      setInterval(() => { pub(); const now = Date.now(); let ch = false; for (const [k, v] of seen) if (now - v.at > 11000) { seen.delete(k); ch = true; } if (ch) push(); }, 4000);
+      addEventListener('pagehide', () => { try { client.publish(mine, '', { qos: 0 }); client.end(); } catch { /* */ } });
+      client.on('close', () => { if (mode !== 'mqtt') return; seen.clear(); push(); });
+      client.on('connect', () => { client.subscribe(`${base}/p/+`, { qos: 0 }); pub(); });
+      client.options.reconnectPeriod = 4000; // đã vào được thì tự nối lại khi rớt mạng
+      pub();
+      return true;
+    }
+    return false;
+  }
   function startLocal() {
     if (!('BroadcastChannel' in window)) return;
     const bc = new BroadcastChannel('mieu-qua-mon'), myId = Math.random().toString(36).slice(2), seen = new Map();
@@ -3411,6 +3461,7 @@ const net = (() => {
       const auto = CONFIG.WS_URL === 'auto' && meta && /^https?:$/.test(location.protocol) && !window.claude;
       const url = auto ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${meta.content || '/mq-ws'}` : CONFIG.WS_URL !== 'auto' ? CONFIG.WS_URL : '';
       if (url && (await tryWs(url))) return onCount();
+      if (await tryMqtt()) return onCount();
       startLocal(); onCount();
     },
     setMe(patch) { Object.assign(me, patch); send(); },
