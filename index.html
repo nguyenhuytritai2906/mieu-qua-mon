@@ -708,6 +708,18 @@ body.chat-open .chat{opacity:1;transform:none;pointer-events:auto}
 .chat-form input{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.25);color:#fff8ea}
 .chat-form input::placeholder{color:rgba(255,240,215,.6)}
 .chat-empty{color:#fff3da}
+
+/* Nút chat to, nổi ở góc trái dưới trên máy tính */
+@media (min-width: 721px){
+  .chat-btn{position:fixed;z-index:8;left:max(20px,env(safe-area-inset-left,0px));bottom:24px;width:58px!important;height:58px!important;background:linear-gradient(180deg,#f6c75c,#e09a2a);color:#3a1608;border-color:#ffe2a0;box-shadow:0 4px 0 #8a4c0c,0 10px 24px rgba(0,0,0,.45);transition:transform .15s,opacity .2s}
+  .chat-btn:hover{transform:translateY(-2px)}
+  .chat-btn svg{width:28px;height:28px}
+  .chat-btn .badge{top:-2px;right:-2px;min-width:20px;height:20px;line-height:20px;font-size:11px}
+  .chat-btn::after{content:"Chat";position:absolute;left:66px;top:50%;transform:translateY(-50%);padding:4px 10px;border-radius:999px;background:rgba(18,8,12,.6);backdrop-filter:blur(8px);color:#fff3da;font:700 13px var(--font-body);white-space:nowrap;pointer-events:none}
+  body.chat-open .chat-btn,body.av-open .chat-btn,body.mo-focus .chat-btn{opacity:0;pointer-events:none}
+  .chat{top:auto;bottom:24px;height:min(420px,calc(100dvh - 110px))}
+}
+body.av-open .chat,body[data-state=fortune] .chat,body[data-state=ritual] .chat{opacity:0!important;pointer-events:none!important}
 </style>
 </head>
 <body>
@@ -3600,6 +3612,7 @@ function closeAvatar() {
   document.body.classList.remove('av-open'); $('#avPanel').inert = true;
   measureOcclusion();
   sound.ensure(); if (sound.musicOn) sound.setMusic(true);
+  chat.autoOpen();
   if (shrine) shrine.me.wave('Xin chào!');
   net.event('wave', {});
   if (firstEntry) {
@@ -3778,9 +3791,10 @@ const chat = (() => {
     if (stick || mine) L.scrollTop = L.scrollHeight;
     if (!open && !mine) { unread++; badge(); }
   }
-  function setOpen(v) {
+  function setOpen(v, focus = true, remember = true) {
     open = v; document.body.classList.toggle('chat-open', v); panel().inert = !v; $('#chatBtn').setAttribute('aria-expanded', String(v));
-    if (v) { unread = 0; badge(); log().scrollTop = log().scrollHeight; setTimeout(() => $('#chatInput').focus({ preventScroll: true }), 120); }
+    if (remember) store.set('chatOpen', v);
+    if (v) { unread = 0; badge(); log().scrollTop = log().scrollHeight; if (focus) setTimeout(() => $('#chatInput').focus({ preventScroll: true }), 120); }
     else $('#chatInput').blur();
   }
   function send(raw) {
@@ -3804,7 +3818,9 @@ const chat = (() => {
     });
     panel().inert = true;
   }
-  return { add, bind, setOpen, get open() { return open; } };
+  // Máy tính: mở sẵn thanh chat bên trái (trừ khi người chơi đã tự đóng)
+  function autoOpen() { if (!isCoarse && innerWidth > 720 && store.get('chatOpen', true) && !open) setOpen(true, false, false); }
+  return { add, bind, setOpen, autoOpen, get open() { return open; } };
 })();
 
 function bindUI() {
