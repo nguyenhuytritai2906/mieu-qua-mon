@@ -665,6 +665,49 @@ body.exploring:not(.av-open) .home-btn { opacity: 1; pointer-events: auto; trans
 #btnMo[aria-pressed="true"] { background: linear-gradient(180deg, #f6c75c, #e09a2a); color: #3a1608; border-color: #ffe2a0; }
 body.mo-focus .tags { opacity: 0; }
 body.mo-focus .joy { opacity: 0; pointer-events: none; }
+
+/* Khung chat */
+.chat-btn{position:relative}
+.chat-btn .badge{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#e8455a;color:#fff;font:700 10px/17px var(--font-body);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--night)}
+.chat{position:fixed;z-index:9;left:max(16px,env(safe-area-inset-left,0px));top:calc(60px + env(safe-area-inset-top,0px));width:min(340px,calc(100vw - 32px));height:min(430px,calc(100dvh - 190px));display:grid;grid-template-rows:auto 1fr auto auto;border-radius:18px;background:linear-gradient(180deg,rgba(122,24,16,.96),rgba(68,12,9,.97));border:2px solid var(--gold);box-shadow:0 20px 50px rgba(0,0,0,.55);overflow:hidden;opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;transition:opacity .2s,transform .25s}
+body.chat-open .chat{opacity:1;transform:none;pointer-events:auto}
+.chat-head{display:flex;align-items:baseline;gap:8px;padding:10px 12px 8px 14px;border-bottom:1px solid rgba(248,220,154,.25)}
+.chat-head b{font-family:var(--font-display);font-weight:400;font-size:16px;color:var(--paper)}
+.chat-head span{font-size:11px;color:var(--gold-soft);opacity:.8;flex:1}
+.chat-x{border:0;background:none;color:var(--gold-soft);font-size:22px;line-height:1;padding:0 4px}
+.chat-log{overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;overscroll-behavior:contain}
+.chat-empty{margin:auto;text-align:center;font-size:13px;color:var(--gold-soft);opacity:.8}
+.msg{align-self:flex-start;max-width:88%;padding:6px 10px;border-radius:12px 12px 12px 4px;background:rgba(255,244,221,.95);color:var(--ink);font-size:13.5px;line-height:1.35;overflow-wrap:anywhere}
+.msg b{display:block;font-size:11px;color:#a3271b;margin-bottom:1px}
+.msg.mine{align-self:flex-end;border-radius:12px 12px 4px 12px;background:linear-gradient(180deg,#f6c75c,#e09a2a)}
+.msg.mine b{color:#6a2a0a}
+.chat-quick{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:6px 10px 0}
+.chat-quick::-webkit-scrollbar{display:none}
+.chat-quick button{flex:none;border:1px solid rgba(248,220,154,.5);background:rgba(40,8,6,.35);color:var(--gold-soft);border-radius:999px;padding:4px 10px;font-size:12px}
+.chat-form{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 10px 10px}
+.chat-form input{min-width:0;border:1px solid var(--paper-edge);border-radius:10px;background:var(--paper);color:var(--ink);padding:9px 11px;font-size:16px}
+.chat-form .btn{padding:9px 14px}
+@media (max-width: 720px){
+  .chat{left:8px;right:8px;width:auto;top:calc(54px + env(safe-area-inset-top,0px));height:min(46dvh,380px)}
+  body.chat-open .joy{opacity:0;pointer-events:none}
+}
+@media (max-width: 720px){
+  .chat-btn{position:fixed;z-index:8;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(var(--occ-b, 120px) + 22px);width:50px!important;height:50px!important;background:linear-gradient(180deg,#f6c75c,#e09a2a);color:#3a1608;border-color:#ffe2a0;box-shadow:0 4px 0 #8a4c0c,0 8px 20px rgba(0,0,0,.4)}
+  .chat-btn svg{width:24px;height:24px}
+  body.av-open .chat-btn,body.mo-focus .chat-btn{opacity:0;pointer-events:none}
+  body:not([data-state=form]):not([data-state=result]) .chat-btn{opacity:0;pointer-events:none}
+}
+/* Chat kiểu kính mờ */
+.chat{background:rgba(18,8,12,.42);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border:1px solid rgba(255,226,168,.35);box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.chat-head{border-bottom-color:rgba(255,255,255,.12)}
+.msg{background:rgba(255,255,255,.16);color:#fff8ea;border:1px solid rgba(255,255,255,.12)}
+.msg b{color:#ffd27a}
+.msg.mine{background:rgba(240,184,78,.85);color:#3a1406;border-color:rgba(255,226,160,.6)}
+.msg.mine b{color:#6a2a0a}
+.chat-quick button{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22);color:#fff3da}
+.chat-form input{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.25);color:#fff8ea}
+.chat-form input::placeholder{color:rgba(255,240,215,.6)}
+.chat-empty{color:#fff3da}
 </style>
 </head>
 <body>
@@ -687,6 +730,10 @@ body.mo-focus .joy { opacity: 0; pointer-events: none; }
     </span>
     <button class="icon-btn" id="avatarBtn" type="button" aria-label="Đổi nhân vật" title="Nhân vật của bạn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M8.2 6.6c1.6.9 4.6 1.1 7.6-.3"/><path d="M4.5 20.5c1.2-3.6 4-5.3 7.5-5.3s6.3 1.7 7.5 5.3"/></svg>
+    </button>
+    <button class="icon-btn chat-btn" id="chatBtn" type="button" aria-label="Trò chuyện" aria-expanded="false" aria-controls="chatPanel" title="Trò chuyện (Enter)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.5c0 3.9-3.6 7-8 7-1.2 0-2.3-.2-3.3-.6L4 20l1.2-3.6C4.4 15.3 4 14 4 12.5c0-3.9 3.6-7 8-7s8 3.1 8 7z"/><path d="M8.5 12.5h.01M12 12.5h.01M15.5 12.5h.01"/></svg>
+      <i class="badge" id="chatBadge" hidden>0</i>
     </button>
     <button class="icon-btn" id="musicBtn" type="button" aria-pressed="true" aria-label="Nhạc nền" title="Nhạc nền">
       <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>
@@ -816,6 +863,12 @@ body.mo-focus .joy { opacity: 0; pointer-events: none; }
     <div class="wd-actions"><button class="btn" id="avRandom" type="button">Ngẫu nhiên</button><button class="btn primary" id="avDone" type="button">Vào miếu</button></div>
     <p class="fine wd-fine">Người khác trong miếu chỉ thấy tên và nhân vật này, không thấy email hay lời nguyện của bạn.</p>
   </div>
+</section>
+<section class="chat" id="chatPanel" aria-label="Trò chuyện trong miếu">
+  <div class="chat-head"><b>Trò chuyện</b><span>Mọi người trong miếu đều thấy</span><button type="button" class="chat-x" id="chatClose" aria-label="Đóng khung chat">×</button></div>
+  <div class="chat-log" id="chatLog" aria-live="polite"><p class="chat-empty" id="chatEmpty">Chưa có ai nhắn. Chào mọi người một câu đi!</p></div>
+  <div class="chat-quick" id="chatQuick"><button type="button">Chào cả nhà!</button><button type="button">Qua môn hết nha!</button><button type="button">Ai ôn bài chung không?</button><button type="button">Deadline dí quá…</button></div>
+  <form class="chat-form" id="chatForm" autocomplete="off"><input id="chatInput" maxlength="120" placeholder="Nhắn gì đó…" enterkeyhint="send" aria-label="Tin nhắn"><button type="submit" class="btn primary">Gửi</button></form>
 </section>
 <div class="joy" id="joy" aria-label="Cần điều khiển: kéo để đi" role="application"><i id="joyKnob"></i></div>
 <button class="home-btn" id="homeBtn" type="button">Về trước miếu</button>
@@ -3096,7 +3149,7 @@ function createShrine(THREE, canvas, hooks) {
       home() { const ch = chars.get('me'); if (ch) walkTo(ch, ch.home); },
       get holding() { return !!chars.get('me')?.holding; },
       wave(text) { const ch = chars.get('me'); if (ch) { ch.waveT = 1.6; if (text) bubble(ch, text); } },
-      say(text) { bubble(chars.get('me'), text); },
+      say(text, sec) { bubble(chars.get('me'), text, sec); },
     },
     thumbs,
     setJoy(x, y) { joy.x = x; joy.y = y; },
@@ -3122,6 +3175,7 @@ function createShrine(THREE, canvas, hooks) {
       else if (k === 'knock') { ch.waveT = 0.8; bubble(ch, `+${d.n || 1} công đức`, 1.6); }
       else if (k === 'xam') bubble(ch, `Xin được xăm số ${d.x} · ${TIERS[d.t] || ''}`, 3.2);
       else if (k === 'wave') { ch.waveT = 1.8; bubble(ch, d.to ? `Chào ${d.to}!` : 'Xin chào!'); }
+      else if (k === 'chat') bubble(ch, d.m, 5.5);
     },
     charName(pickName) { const ch = chars.get(pickName.slice(5)); return ch ? ch.name : ''; },
     setNpcCount(n) { npcWant = n; syncNpcs(); },
@@ -3314,6 +3368,13 @@ addEventListener('resize', measureOcclusion);
    2) Tự host: WebSocket tới server.mjs (CONFIG.WS_URL).
    3) Không có server: các tab cùng trình duyệt thấy nhau (BroadcastChannel).
    Chỉ gửi tên hiển thị, kiểu nhân vật và hành động. Không gửi email hay lời nguyện. */
+/* Lọc tin nhắn chat: bỏ ký tự điều khiển, che từ tục */
+const BAD_WORDS = ['đụ', 'địt', 'đéo', 'lồn', 'cặc', 'buồi', 'đĩ', 'dm', 'đm', 'đmm', 'dmm', 'đcm', 'dcm', 'vcl', 'vkl', 'clm', 'cmm', 'cc', 'loz', 'fuck', 'shit', 'bitch'];
+const BAD_RE = new RegExp('(^|[^\\p{L}\\p{N}])(' + BAD_WORDS.join('|') + ')(?=$|[^\\p{L}\\p{N}])', 'giu');
+function cleanChat(t) {
+  let s = String(t ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  return s.replace(BAD_RE, (m, a, w) => a + '*'.repeat(w.length));
+}
 const net = (() => {
   let mode = 'off', sendFn = null, total = 0, me = {}, evI = 0, knockN = 0, knockTimer = 0;
   const known = new Map();
@@ -3326,13 +3387,15 @@ const net = (() => {
     const pos = Array.isArray(p.p) && p.p.length === 2 && p.p.every((v) => Number.isFinite(v)) ? [clamp(p.p[0], -7, 7), clamp(p.p[1], -4.5, 6.5)] : null;
     const out = { name: cleanName(p.n), look: [idx(l[0], 16), idx(l[1], 8), idx(l[2], 3)], g: p.g === 1, pos, ev: null };
     const e = p.e;
-    if (e && typeof e === 'object' && Number.isInteger(e.i) && ['pray', 'knock', 'xam', 'wave'].includes(e.k)) {
+    if (e && typeof e === 'object' && Number.isInteger(e.i) && ['pray', 'knock', 'xam', 'wave', 'chat'].includes(e.k)) {
       const d = e.d && typeof e.d === 'object' ? e.d : {};
       out.ev = { i: e.i, k: e.k, d: {
         c: Array.isArray(d.c) ? d.c.filter((c) => typeof c === 'string' && /^[A-Z]{3}\d{3}[A-Z]?$/.test(c)).slice(0, 3) : [],
         n: clamp(Number(d.n) | 0, 1, 99), x: clamp(Number(d.x) | 0, 1, 99), t: clamp(Number(d.t) | 0, 1, 5),
         to: typeof d.to === 'string' ? cleanName(d.to) : '',
+        m: e.k === 'chat' ? cleanChat(d.m) : '',
       } };
+      if (e.k === 'chat' && !out.ev.d.m) out.ev = null;
     }
     return out;
   }
@@ -3347,7 +3410,7 @@ const net = (() => {
         known.set(id, { ev: s.ev ? s.ev.i : -1, shown });
       } else {
         if (shrine) k.shown = shrine.peerUpsert(id, s.name, s.look, s.g, s.pos);
-        if (s.ev && s.ev.i !== k.ev) { k.ev = s.ev.i; if (shrine) shrine.peerEvent(id, s.ev.k, s.ev.d); }
+        if (s.ev && s.ev.i !== k.ev) { k.ev = s.ev.i; if (shrine) shrine.peerEvent(id, s.ev.k, s.ev.d); if (s.ev.k === 'chat') chat.add(s.name, s.ev.d.m, false); }
       }
     }
     for (const id of [...known.keys()]) if (!seen.has(id)) { known.delete(id); if (shrine) shrine.peerRemove(id); }
@@ -3699,7 +3762,53 @@ function onPick(name, x) {
   else if (name === 'lantern') shrine.swing(x);
 }
 
+/* Khung chat */
+const chat = (() => {
+  let open = false, unread = 0, lastSent = 0;
+  const panel = () => $('#chatPanel'), log = () => $('#chatLog');
+  function badge() { const b = $('#chatBadge'); b.textContent = unread > 9 ? '9+' : String(unread); b.hidden = !unread; }
+  function add(name, text, mine) {
+    if (!text) return;
+    const row = document.createElement('div'); row.className = 'msg' + (mine ? ' mine' : '');
+    const n = document.createElement('b'); n.textContent = name; const t = document.createElement('span'); t.textContent = text;
+    row.append(n, t);
+    const L = log(), stick = L.scrollHeight - L.scrollTop - L.clientHeight < 40;
+    L.appendChild(row); while (L.children.length > 80) L.firstChild.remove();
+    const empty = $('#chatEmpty'); if (empty) empty.remove();
+    if (stick || mine) L.scrollTop = L.scrollHeight;
+    if (!open && !mine) { unread++; badge(); }
+  }
+  function setOpen(v) {
+    open = v; document.body.classList.toggle('chat-open', v); panel().inert = !v; $('#chatBtn').setAttribute('aria-expanded', String(v));
+    if (v) { unread = 0; badge(); log().scrollTop = log().scrollHeight; setTimeout(() => $('#chatInput').focus({ preventScroll: true }), 120); }
+    else $('#chatInput').blur();
+  }
+  function send(raw) {
+    const text = cleanChat(raw); if (!text) return false;
+    const now = Date.now();
+    if (now - lastSent < 1500) { toast('Từ từ thôi, đợi một chút rồi nhắn tiếp nhé.'); return false; }
+    lastSent = now;
+    add(avatar.name, text, true);
+    if (shrine) shrine.me.say(text, 5.5);
+    net.event('chat', { m: text });
+    return true;
+  }
+  function bind() {
+    $('#chatBtn').addEventListener('click', () => setOpen(!open));
+    $('#chatClose').addEventListener('click', () => setOpen(false));
+    $('#chatForm').addEventListener('submit', (e) => { e.preventDefault(); const i = $('#chatInput'); if (send(i.value)) i.value = ''; });
+    for (const b of document.querySelectorAll('#chatQuick button')) b.addEventListener('click', () => send(b.textContent));
+    $('#chatInput').addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); e.stopPropagation(); });
+    addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !open && !avatarOpen && !/INPUT|TEXTAREA|BUTTON|SELECT/.test(document.activeElement?.tagName || '') && state.name !== 'fortune') { e.preventDefault(); setOpen(true); }
+    });
+    panel().inert = true;
+  }
+  return { add, bind, setOpen, get open() { return open; } };
+})();
+
 function bindUI() {
+  chat.bind();
   ui.form.addEventListener('submit', onSubmit);
   ui.form.addEventListener('focusin', () => { if (compact() && !ui.sheet.classList.contains('open')) setSheetOpen(true); });
   $('.sheet-head').addEventListener('click', () => { if (compact()) setSheetOpen(!ui.sheet.classList.contains('open')); });
