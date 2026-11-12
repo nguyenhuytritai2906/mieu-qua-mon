@@ -1,0 +1,15 @@
+{
+  "name": "mieu-qua-mon",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "description": "Miếu thắp hương 3D nhiều người chơi trên trình duyệt, dành cho sinh viên mùa thi.",
+  "scripts": {
+    "build": "node build.mjs",
+    "bundle": "node scripts/bundle.mjs",
+    "start": "npm run build && node server/server.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "8.18.0" },
+  "devDependencies": { "esbuild": "0.24.0" }
+}

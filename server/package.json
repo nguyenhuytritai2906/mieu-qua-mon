@@ -1,0 +1,10 @@
+{
+  "name": "mieu-qua-mon",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Miếu Qua Môn: thắp hương 3D nhiều người chơi cho sinh viên FPT",
+  "scripts": { "start": "node server.mjs" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "8.18.0" }
+}
